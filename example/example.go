@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"myreplication"
+	"github.com/wangjild/myreplication"
 )
 
 var (

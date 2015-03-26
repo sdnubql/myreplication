@@ -5,8 +5,8 @@ import (
 )
 
 type (
-	eventLog struct {
-		mysqlConnection *connection
+	EventLog struct {
+		mysqlConnection *Connection
 		binlogVersion   uint16
 
 		lastRotatePosition uint32
@@ -611,27 +611,27 @@ func (eh *eventLogHeader) readHead(pack *pack) {
 	pack.readUint16(&eh.Flags)
 }
 
-func newEventLog(mysqlConnection *connection, additionalLength int) *eventLog {
-	return &eventLog{
+func newEventLog(mysqlConnection *Connection, additionalLength int) *EventLog {
+	return &EventLog{
 		mysqlConnection:  mysqlConnection,
 		eventChan:        make(chan interface{}),
 		additionalLength: additionalLength,
 	}
 }
 
-func (ev *eventLog) GetLastPosition() uint32 {
+func (ev *EventLog) GetLastPosition() uint32 {
 	return ev.lastRotatePosition
 }
 
-func (ev *eventLog) GetLastLogFileName() string {
+func (ev *EventLog) GetLastLogFileName() string {
 	return string(ev.lastRotateFileName)
 }
 
-func (ev *eventLog) GetEventChan() <-chan interface{} {
+func (ev *EventLog) GetEventChan() <-chan interface{} {
 	return ev.eventChan
 }
 
-func (ev *eventLog) Start() error {
+func (ev *EventLog) Start() error {
 	for {
 		event, err := ev.readEvent()
 
@@ -716,7 +716,7 @@ func (ev *eventLog) Start() error {
 	}
 }
 
-func (ev *eventLog) readEvent() (interface{}, error) {
+func (ev *EventLog) readEvent() (interface{}, error) {
 	pack, err := ev.mysqlConnection.packReader.readNextPackWithAdditionalLength(ev.additionalLength)
 
 	if err != nil {

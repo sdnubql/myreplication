@@ -7,7 +7,7 @@ import (
 )
 
 type (
-	connection struct {
+	Connection struct {
 		conn       net.Conn
 		packReader *packReader
 		packWriter *packWriter
@@ -23,17 +23,17 @@ const (
 	_DEFAULT_DB = "information_schema"
 )
 
-func NewConnection() *connection {
-	return &connection{
+func NewConnection() *Connection {
+	return &Connection{
 		conn: nil,
 	}
 }
 
-func (c *connection) Connection() net.Conn {
+func (c *Connection) Connection() net.Conn {
 	return c.conn
 }
 
-func (c *connection) ConnectAndAuth(host string, port int, username, password string) error {
+func (c *Connection) ConnectAndAuth(host string, port int, username, password string) error {
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *connection) ConnectAndAuth(host string, port int, username, password st
 	return nil
 }
 
-func (c *connection) init(username, password string) (err error) {
+func (c *Connection) init(username, password string) (err error) {
 	pack, err := c.packReader.readNextPack()
 	if err != nil {
 		return err
@@ -84,7 +84,7 @@ func (c *connection) init(username, password string) (err error) {
 	return pack.isError()
 }
 
-func (c *connection) GetMasterStatus() (pos uint32, filename string, err error) {
+func (c *Connection) GetMasterStatus() (pos uint32, filename string, err error) {
 	rs, err := c.query("SHOW MASTER STATUS")
 	if err != nil {
 		return
@@ -112,7 +112,7 @@ func (c *connection) GetMasterStatus() (pos uint32, filename string, err error) 
 	return
 }
 
-func (c *connection) ChecksumCompatibility() (ok bool, err error) {
+func (c *Connection) ChecksumCompatibility() (ok bool, err error) {
 	err = c.initDb(_DEFAULT_DB)
 	if err != nil {
 		return
@@ -143,7 +143,7 @@ func (c *connection) ChecksumCompatibility() (ok bool, err error) {
 	return
 }
 
-func (c *connection) initDb(schemaName string) error {
+func (c *Connection) initDb(schemaName string) error {
 	q := &initDb{}
 	pack := q.writeServer(schemaName)
 	err := c.packWriter.flush(pack)
@@ -159,7 +159,7 @@ func (c *connection) initDb(schemaName string) error {
 	return pack.isError()
 }
 
-func (c *connection) query(command string) (*resultSet, error) {
+func (c *Connection) query(command string) (*resultSet, error) {
 	q := &query{}
 	pack := q.writeServer(command)
 	err := c.packWriter.flush(pack)
@@ -178,7 +178,7 @@ func (c *connection) query(command string) (*resultSet, error) {
 	return rs, nil
 }
 
-func (c *connection) connectDb(db string) error {
+func (c *Connection) connectDb(db string) error {
 	q := &connectDb{}
 	pack := q.writeServer(db)
 	err := c.packWriter.flush(pack)
@@ -195,7 +195,7 @@ func (c *connection) connectDb(db string) error {
 	return pack.isError()
 }
 
-func (c *connection) fieldList(db, table string) (*resultSet, error) {
+func (c *Connection) fieldList(db, table string) (*resultSet, error) {
 	if c.currentDb != db {
 		err := c.connectDb(db)
 		if err != nil {
@@ -221,7 +221,7 @@ func (c *connection) fieldList(db, table string) (*resultSet, error) {
 	return rs, nil
 }
 
-func (c *connection) StartBinlogDump(position uint32, fileName string, serverId uint32) (el *eventLog, err error) {
+func (c *Connection) StartBinlogDump(position uint32, fileName string, serverId uint32) (el *EventLog, err error) {
 	ok, err := c.ChecksumCompatibility()
 	if err != nil {
 		return
