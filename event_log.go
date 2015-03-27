@@ -22,6 +22,8 @@ type (
 		additionalLength int
 
 		eventChan chan interface{}
+
+		stop bool
 	}
 
 	eventLogHeader struct {
@@ -631,8 +633,12 @@ func (ev *EventLog) GetEventChan() <-chan interface{} {
 	return ev.eventChan
 }
 
+func (ev *EventLog) Stop() {
+	ev.stop = true
+}
+
 func (ev *EventLog) Start() error {
-	for {
+	for !ev.stop {
 		event, err := ev.readEvent()
 
 		if err != nil {
@@ -714,6 +720,8 @@ func (ev *EventLog) Start() error {
 			continue
 		}
 	}
+
+	return nil
 }
 
 func (ev *EventLog) readEvent() (interface{}, error) {

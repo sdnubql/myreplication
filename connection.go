@@ -84,6 +84,14 @@ func (c *Connection) init(username, password string) (err error) {
 	return pack.isError()
 }
 
+func (c *Connection) Close() {
+	if c.conn != nil {
+		c.Close()
+	}
+
+	c = nil
+}
+
 func (c *Connection) GetMasterStatus() (pos uint32, filename string, err error) {
 	rs, err := c.query("SHOW MASTER STATUS")
 	if err != nil {
