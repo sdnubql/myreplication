@@ -633,12 +633,17 @@ func (ev *EventLog) GetEventChan() <-chan interface{} {
 	return ev.eventChan
 }
 
+func (ev *EventLog) Stoped() bool {
+	return ev.stop
+}
+
 func (ev *EventLog) Stop() {
 	ev.stop = true
+	ev.mysqlConnection.Close()
 }
 
 func (ev *EventLog) Start() error {
-	for !ev.stop {
+	for !ev.Stoped() {
 		event, err := ev.readEvent()
 
 		if err != nil {
