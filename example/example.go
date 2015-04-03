@@ -7,14 +7,14 @@ import (
 
 var (
 	host     = "localhost"
-	port     = 3307
-	username = "admin"
-	password = "admin"
+	port     = 3306
+	username = "root"
+	password = "root"
 )
 
 func main() {
 	newConnection := myreplication.NewConnection()
-	serverId := uint32(2)
+	serverId := uint32(1)
 	err := newConnection.ConnectAndAuth(host, port, username, password)
 
 	if err != nil {
@@ -27,6 +27,7 @@ func main() {
 		panic("Master status fail: " + err.Error())
 	}
 
+	pos, filename = 107, "mysql-bin.000006"
 	el, err := newConnection.StartBinlogDump(pos, filename, serverId)
 
 	if err != nil {
@@ -40,7 +41,7 @@ func main() {
 			switch e := event.(type) {
 			case *myreplication.QueryEvent:
 				//Output query event
-				println(e.GetQuery())
+				println("Query: " + e.GetQuery())
 			case *myreplication.IntVarEvent:
 				//Output last insert_id  if statement based replication
 				println(e.GetValue())

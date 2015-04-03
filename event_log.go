@@ -311,7 +311,6 @@ func (event *rowsEvent) read(pack *pack) {
 					var val uint64
 					pack.readUint64(&val)
 					value.value = val
-
 				case MYSQL_TYPE_LONG:
 					var val uint32
 					pack.readUint32(&val)
@@ -618,6 +617,7 @@ func newEventLog(mysqlConnection *Connection, additionalLength int) *EventLog {
 		mysqlConnection:  mysqlConnection,
 		eventChan:        make(chan interface{}),
 		additionalLength: additionalLength,
+		stop:             false,
 	}
 }
 
@@ -860,7 +860,7 @@ func (ev *EventLog) readEvent() (interface{}, error) {
 	}
 
 	ev.lastRotatePosition = header.NextPosition
-	event.read(pack)
 
+	event.read(pack)
 	return event, nil
 }

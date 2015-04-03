@@ -304,7 +304,8 @@ func (r *pack) readStringLength() ([]byte, error) {
 		return []byte{}, nil
 	}
 
-	return r.Next(int(length)), nil
+	ret := r.Next(int(length))
+	return ret, nil
 }
 
 func (r *pack) readIntLengthOrNil(value *uint64, null *bool) error {
