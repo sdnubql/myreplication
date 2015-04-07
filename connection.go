@@ -1,7 +1,9 @@
 package myreplication
 
 import (
+	"database/sql"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	"net"
 	"strconv"
 )
@@ -12,10 +14,11 @@ type (
 		packReader *packReader
 		packWriter *packWriter
 
-		currentDb string
-
+		currentDb      string
 		masterPosition uint64
 		fileName       string
+
+		ctrDB *sql.DB
 	}
 )
 
@@ -25,7 +28,8 @@ const (
 
 func NewConnection() *Connection {
 	return &Connection{
-		conn: nil,
+		conn:  nil,
+		ctrDB: nil,
 	}
 }
 
@@ -44,8 +48,23 @@ func (c *Connection) ConnectAndAuth(host string, port int, username, password st
 	c.packReader = newPackReader(conn)
 	c.packWriter = newPackWriter(conn)
 
-	err = c.init(username, password)
-	if err != nil {
+	if err = c.init(username, password); err != nil {
+		return err
+	}
+
+	if err = c.initCtrDB(host, port, username, password, _DEFAULT_DB); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Connection) initCtrDB(host string, port int, username, password, defaultDB string) error {
+
+	var err error
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=True&loc=Local&interpolateParams=true",
+		username, password, host, port, defaultDB)
+	if c.ctrDB, err = sql.Open("mysql", dsn); err != nil {
 		return err
 	}
 

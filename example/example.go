@@ -35,7 +35,7 @@ func main() {
 	}
 	events := el.GetEventChan()
 	go func() {
-		for {
+		for i := 0; i < 5; i++ {
 			event := <-events
 
 			switch e := event.(type) {

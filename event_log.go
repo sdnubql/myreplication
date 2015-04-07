@@ -6,24 +6,19 @@ import (
 
 type (
 	EventLog struct {
-		mysqlConnection *Connection
-		binlogVersion   uint16
-
-		lastRotatePosition uint32
-		lastRotateFileName []byte
-
+		mysqlConnection               *Connection
+		binlogVersion                 uint16
+		lastRotatePosition            uint32
+		lastRotateFileName            []byte
 		headerQueryEventLength        byte
 		headerDeleteRowsEventV1Length byte
 		headerUpdateRowsEventV1Length byte
 		headerWriteRowsEventV1Length  byte
-
-		lastTableMapEvent *TableMapEvent
-
-		additionalLength int
-
-		eventChan chan interface{}
-
-		stop bool
+		tableMap                      map[int]*Table
+		lastTableMapEvent             *TableMapEvent
+		additionalLength              int
+		eventChan                     chan interface{}
+		stop                          bool
 	}
 
 	eventLogHeader struct {
@@ -133,6 +128,9 @@ type (
 		Type     byte
 		MetaInfo []byte
 		Nullable bool
+	}
+
+	MetaInfo struct {
 	}
 
 	rowsEvent struct {
@@ -639,7 +637,6 @@ func (ev *EventLog) Stoped() bool {
 
 func (ev *EventLog) Stop() {
 	ev.stop = true
-	ev.mysqlConnection.Close()
 }
 
 func (ev *EventLog) Start() error {
@@ -726,7 +723,13 @@ func (ev *EventLog) Start() error {
 		}
 	}
 
+	ev.close()
 	return nil
+}
+
+func (ev *EventLog) close() {
+	ev.mysqlConnection.Close()
+	close(ev.eventChan)
 }
 
 func (ev *EventLog) readEvent() (interface{}, error) {
