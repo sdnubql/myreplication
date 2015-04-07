@@ -290,3 +290,37 @@ func (c *Connection) StartBinlogDump(position uint32, fileName string, serverId 
 
 	return el, nil
 }
+
+func (c *Connection) getSchemaColumns(schema string, table string) ([]*ColumnSchemas, error) {
+	var rows *sql.Rows
+	var err error
+	if rows, err = c.ctrDB.Query(`
+		SELECT 
+			COLUMN_NAME, COLLATION_NAME, CHARACTER_SET_NAME, 
+			COLUMN_COMMENT, COLUMN_TYPE, COLUMN_KEY 
+		FROM 
+			columns 
+		WHERE 
+			table_schema = ? AND table_name = ?`, schema, table); err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var cols []*ColumnSchemas
+	for rows.Next() {
+		col := &ColumnSchemas{}
+		if err = rows.Scan(&col.COLUMN_NAME, &col.COLLATION_NAME, &col.CHARACTER_SET_NAME, &col.COLUMN_COMMENT,
+			&col.COLUMN_TYPE, &col.COLUMN_KEY); err != nil {
+			return err
+		}
+
+		cols = append(cols, col)
+	}
+
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	return cols, nil
+}

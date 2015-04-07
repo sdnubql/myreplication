@@ -20,6 +20,15 @@ func readUint16Revert(buff []byte, dest *uint16) error {
 	return nil
 }
 
+func readUint8(buff []byte, dest *uint8) error {
+	if len(buff) != 1 {
+		return errors.New("incorrect source byte array length")
+	}
+
+	*dest = uint8(buff[0])
+	return nil
+}
+
 func readUint16(buff []byte, dest *uint16) error {
 	if len(buff) != 2 {
 		return errors.New("incorrect source byte array length")

@@ -122,6 +122,9 @@ type (
 		SchemaName string
 		TableName  string
 		Columns    []*TableMapEventColumn
+		tableMap   map[int]*Table
+
+		ctrConn *Connection
 	}
 
 	TableMapEventColumn struct {
@@ -833,6 +836,7 @@ func (ev *EventLog) readEvent() (interface{}, error) {
 	case _TABLE_MAP_EVENT:
 		event = &TableMapEvent{
 			eventLogHeader: header,
+			tableMap:       ev.tableMap,
 		}
 	case _DELETE_ROWS_EVENTv0:
 		fallthrough

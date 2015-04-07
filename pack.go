@@ -106,29 +106,28 @@ func (r *pack) readByte(dest *byte) (err error) {
 	return
 }
 
+func (r *pack) readUint8(dest *uint8) error {
+	return readUint8(r.Buffer.Next(1), dest)
+}
+
 func (r *pack) readUint16(dest *uint16) error {
-	readUint16(r.Buffer.Next(2), dest)
-	return nil
+	return readUint16(r.Buffer.Next(2), dest)
 }
 
 func (r *pack) readThreeByteUint32(dest *uint32) error {
-	readThreeBytesUint32(r.Buffer.Next(3), dest)
-	return nil
+	return readThreeBytesUint32(r.Buffer.Next(3), dest)
 }
 
 func (r *pack) readUint32(dest *uint32) error {
-	readUint32(r.Buffer.Next(4), dest)
-	return nil
+	return readUint32(r.Buffer.Next(4), dest)
 }
 
 func (r *pack) readSixByteUint64(dest *uint64) error {
-	readSixByteUint64(r.Buffer.Next(6), dest)
-	return nil
+	return readSixByteUint64(r.Buffer.Next(6), dest)
 }
 
 func (r *pack) readUint64(dest *uint64) error {
-	readUint64(r.Buffer.Next(8), dest)
-	return nil
+	return readUint64(r.Buffer.Next(8), dest)
 }
 
 func (r *pack) readDateTime() time.Time {
