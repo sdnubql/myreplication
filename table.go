@@ -1,7 +1,7 @@
 package myreplication
 
 type Table struct {
-	ColumnSchemas []string
+	SchemaColumns []*SchemaColumn
 	TableId       int32
 	Schema        string
 	Table         string

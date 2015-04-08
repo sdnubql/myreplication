@@ -14,7 +14,7 @@ type (
 		headerDeleteRowsEventV1Length byte
 		headerUpdateRowsEventV1Length byte
 		headerWriteRowsEventV1Length  byte
-		tableMap                      map[int]*Table
+		tableMap                      map[uint64]*Table
 		lastTableMapEvent             *TableMapEvent
 		additionalLength              int
 		eventChan                     chan interface{}
@@ -113,27 +113,6 @@ type (
 		*eventLogHeader
 		seed1 uint64
 		seed2 uint64
-	}
-
-	TableMapEvent struct {
-		*eventLogHeader
-		TableId    uint64
-		Flags      uint16
-		SchemaName string
-		TableName  string
-		Columns    []*TableMapEventColumn
-		tableMap   map[int]*Table
-
-		ctrConn *Connection
-	}
-
-	TableMapEventColumn struct {
-		Type     byte
-		MetaInfo []byte
-		Nullable bool
-	}
-
-	MetaInfo struct {
 	}
 
 	rowsEvent struct {
@@ -307,7 +286,7 @@ func (event *rowsEvent) read(pack *pack) {
 					val, _ := pack.readStringLength()
 					value.value = string(val)
 				case MYSQL_TYPE_DECIMAL, MYSQL_TYPE_NEWDECIMAL:
-					value.value = pack.readNewDecimal(int(column.MetaInfo[0]), int(column.MetaInfo[1]))
+					value.value = pack.readNewDecimal(int(column.Precision), int(column.Decimals))
 				case MYSQL_TYPE_LONGLONG:
 					var val uint64
 					pack.readUint64(&val)
@@ -356,58 +335,6 @@ func (event *rowsEvent) read(pack *pack) {
 		if pack.Len() == 0 {
 			break
 		}
-	}
-}
-
-func (event *TableMapEvent) read(pack *pack) {
-	pack.readSixByteUint64(&event.TableId)
-	pack.readUint16(&event.Flags)
-
-	schemaLength, _ := pack.ReadByte()
-	event.SchemaName = string(pack.Next(int(schemaLength)))
-	filler, _ := pack.ReadByte()
-	if filler != 0 {
-		panic("incorrect filler")
-	}
-
-	tableLength, _ := pack.ReadByte()
-	event.TableName = string(pack.Next(int(tableLength)))
-	filler, _ = pack.ReadByte()
-	if filler != 0 {
-		panic("incorrect filler")
-	}
-
-	var columnCount uint64
-	var isNull bool
-
-	pack.readIntLengthOrNil(&columnCount, &isNull)
-
-	columnTypeDef := pack.Next(int(columnCount))
-	columnMetaDef, _ := pack.readStringLength()
-	columnNullBitMap := pack.Bytes()
-	event.Columns = make([]*TableMapEventColumn, columnCount)
-
-	metaOffset := 0
-
-	for i := 0; i < len(columnTypeDef); i++ {
-		column := &TableMapEventColumn{
-			Type:     columnTypeDef[i],
-			Nullable: (columnNullBitMap[i/8]>>uint8(i%8))&1 == 1,
-		}
-
-		switch columnTypeDef[i] {
-		case MYSQL_TYPE_STRING, MYSQL_TYPE_VAR_STRING, MYSQL_TYPE_VARCHAR, MYSQL_TYPE_DECIMAL,
-			MYSQL_TYPE_NEWDECIMAL, MYSQL_TYPE_ENUM, MYSQL_TYPE_SET:
-			column.MetaInfo = columnMetaDef[metaOffset : metaOffset+2]
-			metaOffset += 2
-		case MYSQL_TYPE_BLOB, MYSQL_TYPE_DOUBLE, MYSQL_TYPE_FLOAT:
-			column.MetaInfo = columnMetaDef[metaOffset : metaOffset+1]
-			metaOffset += 1
-		default:
-			column.MetaInfo = []byte{}
-		}
-
-		event.Columns[i] = column
 	}
 }
 
