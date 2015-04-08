@@ -115,37 +115,6 @@ type (
 		seed2 uint64
 	}
 
-	rowsEvent struct {
-		*eventLogHeader
-		tableMapEvent    *TableMapEvent
-		postHeaderLength byte
-
-		tableId   uint64
-		flags     uint16
-		extraData []byte
-		values    [][]*RowsEventValue
-		newValues [][]*RowsEventValue
-	}
-
-	RowsEventValue struct {
-		columnId int
-		isNull   bool
-		value    interface{}
-		_type    byte
-	}
-
-	DeleteEvent struct {
-		*rowsEvent
-	}
-
-	WriteEvent struct {
-		*rowsEvent
-	}
-
-	UpdateEvent struct {
-		*rowsEvent
-	}
-
 	unknownEvent struct {
 		*eventLogHeader
 	}
@@ -174,42 +143,6 @@ type (
 		*unknownEvent
 	}
 )
-
-func (event *RowsEventValue) GetType() byte {
-	return event._type
-}
-
-func (event *RowsEventValue) GetValue() interface{} {
-	return event.value
-}
-
-func (event *RowsEventValue) IsNil() bool {
-	return event.isNull
-}
-
-func (event *RowsEventValue) GetColumnId() int {
-	return event.columnId
-}
-
-func (event *rowsEvent) GetSchema() string {
-	return event.tableMapEvent.SchemaName
-}
-
-func (event *rowsEvent) GetTable() string {
-	return event.tableMapEvent.TableName
-}
-
-func (event *rowsEvent) GetRows() [][]*RowsEventValue {
-	return event.values
-}
-
-func (event *UpdateEvent) GetNewRows() [][]*RowsEventValue {
-	return event.newValues
-}
-
-func isTrue(columnId int, bitmap []byte) bool {
-	return (bitmap[columnId/8]>>uint8(columnId%8))&1 == 1
-}
 
 func (event *rowsEvent) read(pack *pack) {
 	isUpdateEvent := event.EventType == _UPDATE_ROWS_EVENTv1 || event.EventType == _UPDATE_ROWS_EVENTv2

@@ -4,6 +4,75 @@ import (
 	"strings"
 )
 
+type rowsEvent struct {
+	*eventLogHeader
+	tableMapEvent    *TableMapEvent
+	postHeaderLength byte
+
+	tableId   uint64
+	flags     uint16
+	extraData []byte
+	values    [][]*RowsEventValue
+	newValues [][]*RowsEventValue
+}
+
+func (event *rowsEvent) GetSchema() string {
+	return event.tableMapEvent.SchemaName
+}
+
+func (event *rowsEvent) GetTable() string {
+	return event.tableMapEvent.TableName
+}
+
+func (event *rowsEvent) GetRows() [][]*RowsEventValue {
+	return event.values
+}
+
+func isTrue(columnId int, bitmap []byte) bool {
+	return (bitmap[columnId/8]>>uint8(columnId%8))&1 == 1
+}
+
+type (
+	DeleteEvent struct {
+		*rowsEvent
+	}
+
+	WriteEvent struct {
+		*rowsEvent
+	}
+
+	UpdateEvent struct {
+		*rowsEvent
+	}
+)
+
+func (event *UpdateEvent) GetNewRows() [][]*RowsEventValue {
+	return event.newValues
+}
+
+type RowsEventValue struct {
+	columnId int
+	isNull   bool
+	value    interface{}
+	_type    byte
+}
+
+func (event *RowsEventValue) GetType() byte {
+	return event._type
+}
+
+func (event *RowsEventValue) GetValue() interface{} {
+	return event.value
+}
+
+func (event *RowsEventValue) IsNil() bool {
+	return event.isNull
+}
+
+func (event *RowsEventValue) GetColumnId() int {
+	return event.columnId
+}
+
 type (
 	TableMapEvent struct {
 		*eventLogHeader
