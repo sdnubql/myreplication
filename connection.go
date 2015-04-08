@@ -291,7 +291,7 @@ func (c *Connection) StartBinlogDump(position uint32, fileName string, serverId 
 	return el, nil
 }
 
-func (c *Connection) getSchemaColumns(schema string, table string) ([]*ColumnSchemas, error) {
+func (c *Connection) getSchemaColumns(schema string, table string) ([]*SchemaColumn, error) {
 	var rows *sql.Rows
 	var err error
 	if rows, err = c.ctrDB.Query(`
@@ -307,19 +307,19 @@ func (c *Connection) getSchemaColumns(schema string, table string) ([]*ColumnSch
 
 	defer rows.Close()
 
-	var cols []*ColumnSchemas
+	var cols []*SchemaColumn
 	for rows.Next() {
-		col := &ColumnSchemas{}
+		col := &SchemaColumn{}
 		if err = rows.Scan(&col.COLUMN_NAME, &col.COLLATION_NAME, &col.CHARACTER_SET_NAME, &col.COLUMN_COMMENT,
 			&col.COLUMN_TYPE, &col.COLUMN_KEY); err != nil {
-			return err
+			return nil, err
 		}
 
 		cols = append(cols, col)
 	}
 
 	if err = rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
 	return cols, nil
