@@ -2,6 +2,7 @@ package myreplication
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"math/big"
 	"strconv"
@@ -130,34 +131,122 @@ func (r *pack) readUint64(dest *uint64) error {
 	return readUint64(r.Buffer.Next(8), dest)
 }
 
-func (r *pack) readDateTime() time.Time {
-	length, _ := r.ReadByte()
-	var year uint16
-	var month, day, hour, minute, second byte
-	var microSecond uint32
+func (r *pack) readUint64BySize(size int) (uint64, error) {
 
-	if length == 0 {
+	var ret uint64
+	if err := readFixByteUint64(r.Buffer.Next(size), &ret); err != nil {
+		return 0, err
+	}
+
+	return ret, nil
+}
+
+/*
+ * YYYY<< 9 + MM << 5 + DD
+ */
+func (r *pack) readDate() time.Time {
+	var value uint32
+	r.readThreeByteUint32(&value)
+	if value == 0 {
 		return time.Time{}.In(time.Local)
 	}
 
-	r.readUint16(&year)
-	month, _ = r.ReadByte()
-	day, _ = r.ReadByte()
-
-	if length >= 7 {
-		hour, _ = r.ReadByte()
-		minute, _ = r.ReadByte()
-		second, _ = r.ReadByte()
+	var year int
+	if year = int((value & (((1 << 15) - 1) << 9)) >> 9); year == 0 {
+		return time.Time{}.In(time.Local)
 	}
 
-	if length == 11 {
-		r.readUint32(&microSecond)
-	}
+	month := int((value & (((1 << 4) - 1) << 5)) >> 5)
+	day := int(value & ((1 << 5) - 1))
 
-	return time.Date(
-		int(year), time.Month(month), int(day), int(hour), int(minute), int(second), int(microSecond),
-		time.Local,
+	date := time.Date(
+		year, time.Month(month), day, 0, 0, 0, 0, time.Local,
 	)
+
+	return date
+}
+
+func (r *pack) readDateTime() time.Time {
+
+	var value uint64
+	r.readUint64(&value)
+	if value == 0 {
+		return time.Time{}.In(time.Local)
+	}
+
+	date := value / 1000000
+	timev := int(value % 1000000)
+
+	year := int(date / 10000)
+	month := int((date % 10000) / 100)
+	day := int(date % 100)
+
+	if year == 0 || month == 0 || day == 0 {
+		return time.Time{}.In(time.Local)
+	}
+
+	return time.Date(int(year), time.Month(month), int(day), int(timev/10000), int((timev%10000)/100), int(timev%100), 0, time.Local)
+}
+
+func (r *pack) readTimestamp() time.Time {
+	var value uint32
+	r.readUint32(&value)
+
+	return time.Unix(int64(value), 0)
+}
+
+/*
+ * doc: http://dev.mysql.com/doc/internals/en/date-and-time-data-type-representation.html
+   DATETIME2
+
+   1 bit  sign           (1= non-negative, 0= negative)
+   17 bits year*13+month  (year 0-9999, month 0-12)
+   5 bits day            (0-31)
+   5 bits hour           (0-23)
+   6 bits minute         (0-59)
+   6 bits second         (0-59)
+   ---------------------------
+   40 bits = 5 bytes
+*/
+func (r *pack) readDateTime2(fsp uint8) time.Time {
+	data := binary.BigEndian.Uint64(r.Buffer.Next(40))
+	year_month := readBinarySlice(data, 1, 17, 40)
+	t := time.Date(
+		int(year_month/13), time.Month(int(year_month%13)), int(readBinarySlice(data, 18, 5, 40)),
+		int(readBinarySlice(data, 23, 5, 40)),
+		int(readBinarySlice(data, 28, 6, 40)),
+		int(readBinarySlice(data, 34, 6, 40)), 0, time.Local)
+	return r.addFspTime(t, fsp)
+}
+
+func (r *pack) addFspTime(t time.Time, fsp uint8) time.Time {
+	read := 0
+	switch fsp {
+	case 1, 2:
+		read = 1
+	case 3, 4:
+		read = 2
+	case 5, 6:
+		read = 3
+	}
+
+	if read == 0 {
+		return t
+	}
+
+	microsec := binary.BigEndian.Uint32(r.Buffer.Next(8 * read))
+	if fsp%2 == 1 {
+		t.Add(time.Microsecond * time.Duration(int(microsec/10)))
+	} else {
+		t.Add(time.Microsecond * time.Duration(microsec))
+	}
+
+	return t
+}
+
+func readBinarySlice(data uint64, start, size, datalen uint32) uint64 {
+	data = data >> (datalen - start + size)
+	return data & ((1 << size) - 1)
 }
 
 func (r *pack) readTime() time.Duration {
@@ -331,6 +420,16 @@ func (r *pack) readIntLengthOrNil(value *uint64, null *bool) error {
 		*value = uint64(lb)
 	}
 	return nil
+}
+
+func (r *pack) readStringBySize(size int) (string, error) {
+	var i uint64
+	var err error
+	if err = readFixByteUint64(r.Buffer.Next(size), &i); err != nil {
+		return "", err
+	} else {
+		return string(r.Buffer.Next(int(i))), nil
+	}
 }
 
 func (r *pack) writeUInt16(data uint16) error {

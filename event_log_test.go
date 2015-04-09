@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 type (
@@ -847,10 +848,10 @@ func TestWriteRowsEventV1(t *testing.T) {
 			expectedValues: [][]*RowsEventValue{
 				[]*RowsEventValue{
 					&RowsEventValue{0, false, uint64(0), MYSQL_TYPE_LONGLONG},
-					&RowsEventValue{1, false, uint32(230600), MYSQL_TYPE_LONGLONG},
-					&RowsEventValue{2, false, "hi", MYSQL_TYPE_VARCHAR},
-					&RowsEventValue{3, false, `2014`, MYSQL_TYPE_DATETIME},
-					&RowsEventValue{4, false, `2014`, MYSQL_TYPE_TIMESTAMP},
+					&RowsEventValue{1, false, uint32(230600), MYSQL_TYPE_LONG},
+					&RowsEventValue{2, false, `{"city_name": "\u5317\u4eac", "latitude": 3992427, "longitude": 11645567}`, MYSQL_TYPE_VARCHAR},
+					&RowsEventValue{3, false, time.Date(2014, time.Month(11), 13, 14, 00, 57, 00, time.Local), MYSQL_TYPE_DATETIME},
+					&RowsEventValue{4, false, time.Date(2015, time.Month(3), 30, 06, 50, 44, 00, time.Local), MYSQL_TYPE_TIMESTAMP},
 				},
 			},
 		},

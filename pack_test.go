@@ -727,6 +727,46 @@ func TestEOFPacket(t *testing.T) {
 	}
 }
 
+func TestReadDate(t *testing.T) {
+
+	type dateTestCase struct {
+		buff         []byte
+		expectedTime time.Time
+	}
+
+	testCases := []*dateTestCase{
+		&dateTestCase{
+			buff: []byte{
+				0x03, 0x00, 0x00, 0x01, // header
+				0x20, 0x64, 0x0f,
+			},
+			expectedTime: time.Date(1970, time.Month(1), 0, 0, 0, 0, 0, time.Local),
+		},
+		&dateTestCase{
+			buff: []byte{
+				0x03, 0x00, 0x00, 0x01, // header
+				0x78, 0xbc, 0x0f,
+			},
+			expectedTime: time.Date(2014, time.Month(3), 24, 0, 0, 0, 0, time.Local),
+		},
+	}
+
+	for i, testCase := range testCases {
+		reader := newPackReader(bytes.NewBuffer(testCase.buff))
+		pack, _ := reader.readNextPack()
+
+		result := pack.readDate()
+
+		if !testCase.expectedTime.Equal(result) {
+			t.Fatal(
+				"incorrect date time at test", i,
+				"expected", testCase.expectedTime,
+				"got", result,
+			)
+		}
+	}
+}
+
 func TestReadDateTime(t *testing.T) {
 	type dateTimeTestCase struct {
 		buff         []byte
@@ -736,33 +776,41 @@ func TestReadDateTime(t *testing.T) {
 	testCases := []*dateTimeTestCase{
 		&dateTimeTestCase{
 			buff: []byte{
-				0x10, 0x00, 0x00, 0x01,
-				0x0b, 0xda, 0x07, 0x0a, 0x11, 0x13, 0x1b, 0x1e, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+				0x08, 0x00, 0x00, 0x01,
+				0x59, 0xe3, 0xe4, 0x77, 0x51, 0x12, 0x00, 0x00,
 			},
-			expectedTime: time.Date(2010, 10, 17, 19, 27, 30, 1, time.Local),
+			expectedTime: time.Date(2014, 11, 13, 14, 00, 57, 0, time.Local),
 		},
-		&dateTimeTestCase{
-			buff: []byte{
-				0x09, 0x00, 0x00, 0x01,
-				0x04, 0xda, 0x07, 0x0a, 0x11, 0x00, 0x00, 0x02, 0x00,
+		/*
+				&dateTimeTestCase{
+					buff: []byte{
+						0x10, 0x00, 0x00, 0x01,
+						0x0b, 0xda, 0x07, 0x0a, 0x11, 0x13, 0x1b, 0x1e, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+					},
+					expectedTime: time.Date(2010, 10, 17, 19, 27, 30, 1, time.Local),
+				},
+			&dateTimeTestCase{
+				buff: []byte{
+					0x09, 0x00, 0x00, 0x01,
+					0x04, 0xda, 0x07, 0x0a, 0x11, 0x00, 0x00, 0x02, 0x00,
+				},
+				expectedTime: time.Date(2010, 10, 17, 0, 0, 0, 0, time.Local),
 			},
-			expectedTime: time.Date(2010, 10, 17, 0, 0, 0, 0, time.Local),
-		},
-		&dateTimeTestCase{
-			buff: []byte{
-				0x05, 0x00, 0x00, 0x01,
-				0x00, 0x00, 0x00, 0x02, 0x00,
+			&dateTimeTestCase{
+				buff: []byte{
+					0x05, 0x00, 0x00, 0x01,
+					0x00, 0x00, 0x00, 0x02, 0x00,
+				},
+				expectedTime: time.Time{}.In(time.Local),
 			},
-			expectedTime: time.Time{}.In(time.Local),
-		},
-		&dateTimeTestCase{
-			buff: []byte{
-				0x0C, 0x00, 0x00, 0x01,
-				0x07, 0xda, 0x07, 0x0a, 0x11, 0x13, 0x1b, 0x1e,
-				0x00, 0x00, 0x02, 0x00,
-			},
-			expectedTime: time.Date(2010, 10, 17, 19, 27, 30, 0, time.Local),
-		},
+			&dateTimeTestCase{
+				buff: []byte{
+					0x0C, 0x00, 0x00, 0x01,
+					0x07, 0xda, 0x07, 0x0a, 0x11, 0x13, 0x1b, 0x1e,
+					0x00, 0x00, 0x02, 0x00,
+				},
+				expectedTime: time.Date(2010, 10, 17, 19, 27, 30, 0, time.Local),
+			},*/
 	}
 
 	for i, testCase := range testCases {
@@ -780,6 +828,39 @@ func TestReadDateTime(t *testing.T) {
 		}
 	}
 }
+
+/*
+func TestReadDateTime2(t *testing.T) {
+	type dateTime2TestCase struct {
+		buff         []byte
+		expectedTime time.Time
+	}
+
+	testCases := []*dateTime2TestCase{
+		&dateTime2TestCase{
+			buff: []byte{
+				0x10, 0x00, 0x00, 0x01,
+				0x0b, 0xda, 0x07, 0x0a, 0x11, 0x13, 0x1b, 0x1e, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
+			},
+			expectedTime: time.Date(2010, 10, 17, 19, 27, 30, 1, time.Local),
+		},
+	}
+
+	for i, testCase := range testCases {
+		reader := newPackReader(bytes.NewBuffer(testCase.buff))
+		pack, _ := reader.readNextPack()
+
+		result := pack.readDateTime2(0)
+
+		if !testCase.expectedTime.Equal(result) {
+			t.Fatal(
+				"incorrect date time at test", i,
+				"expected", testCase.expectedTime,
+				"got", result,
+			)
+		}
+	}
+}*/
 
 func TestReadTime(t *testing.T) {
 

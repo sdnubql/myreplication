@@ -11,21 +11,21 @@ type (
 	}
 )
 
-func readUint16Revert(buff []byte, dest *uint16) error {
-	if len(buff) != 2 {
-		return errors.New("incorrect source byte array length")
-	}
-	*dest = uint16(buff[1] & 0xFF)
-	*dest += uint16(buff[0]&0xFF) << 8
-	return nil
-}
-
 func readUint8(buff []byte, dest *uint8) error {
 	if len(buff) != 1 {
 		return errors.New("incorrect source byte array length")
 	}
 
 	*dest = uint8(buff[0])
+	return nil
+}
+
+func readUint16Revert(buff []byte, dest *uint16) error {
+	if len(buff) != 2 {
+		return errors.New("incorrect source byte array length")
+	}
+	*dest = uint16(buff[1] & 0xFF)
+	*dest += uint16(buff[0]&0xFF) << 8
 	return nil
 }
 
@@ -145,6 +145,19 @@ func readUint64Revert(buff []byte, dest *uint64) error {
 	*dest += uint64(buff[2]&0xFF) << 40
 	*dest += uint64(buff[1]&0xFF) << 48
 	*dest += uint64(buff[0]&0xFF) << 56
+
+	return nil
+}
+
+func readFixByteUint64(buff []byte, dest *uint64) error {
+	if len(buff) == 0 || len(buff) > 8 {
+		return errors.New("incorrect source byte array length")
+	}
+
+	*dest = 0
+	for i := 0; i < len(buff); i++ {
+		*dest += uint64(buff[i]&0xFF) << uint(i*8)
+	}
 
 	return nil
 }

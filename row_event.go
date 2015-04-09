@@ -1,6 +1,7 @@
 package myreplication
 
 import (
+	"math"
 	"strings"
 )
 
@@ -14,6 +15,148 @@ type rowsEvent struct {
 	extraData []byte
 	values    [][]*RowsEventValue
 	newValues [][]*RowsEventValue
+}
+
+func (event *rowsEvent) read(pack *pack) {
+	isUpdateEvent := event.EventType == _UPDATE_ROWS_EVENTv1 || event.EventType == _UPDATE_ROWS_EVENTv2
+
+	if event.postHeaderLength == 6 {
+		var tableId uint32
+		pack.readUint32(&tableId)
+		event.tableId = uint64(tableId)
+	} else {
+		pack.readSixByteUint64(&event.tableId)
+	}
+
+	pack.readUint16(&event.Flags)
+
+	//If row event == 2
+	if event.EventType >= _WRITE_ROWS_EVENTv2 && event.EventType <= _DELETE_ROWS_EVENTv2 {
+		var extraDataLength uint16
+		pack.readUint16(&extraDataLength)
+		extraDataLength -= 2
+		event.extraData = pack.Next(int(extraDataLength))
+	}
+
+	var (
+		columnCount uint64
+		isNull      bool
+	)
+
+	pack.readIntLengthOrNil(&columnCount, &isNull)
+	bitMapLength := int((columnCount + 7) / 8)
+
+	var columnPreset, columnPresentBitmap1, columnPresentBitmap2, nullBitmap []byte
+	columnPresentBitmap1 = pack.Next(bitMapLength)
+	if isUpdateEvent {
+		columnPresentBitmap2 = pack.Next(bitMapLength)
+	}
+
+	event.values = [][]*RowsEventValue{}
+	event.newValues = [][]*RowsEventValue{}
+
+	switcher := true
+
+	for {
+		nullBitmap = pack.Next(bitMapLength)
+
+		row := []*RowsEventValue{}
+		for i, column := range event.tableMapEvent.Columns {
+
+			if switcher {
+				columnPreset = columnPresentBitmap1
+			} else {
+				columnPreset = columnPresentBitmap2
+			}
+
+			if !isTrue(i, columnPreset) {
+				continue
+			}
+
+			value := &RowsEventValue{
+				columnId: i,
+				_type:    column.Type,
+			}
+			if isTrue(i, nullBitmap) {
+				value.value = nil
+				value.isNull = true
+			} else {
+				switch column.Type {
+				case MYSQL_TYPE_TINY:
+					value.value, _ = pack.ReadByte()
+				case MYSQL_TYPE_SHORT:
+					var val uint16
+					pack.readUint16(&val)
+					value.value = val
+				case MYSQL_TYPE_LONG:
+					var val uint32
+					pack.readUint32(&val)
+					value.value = val
+				case MYSQL_TYPE_INT24:
+					var val uint32
+					pack.readThreeByteUint32(&val)
+					value.value = val
+				case MYSQL_TYPE_FLOAT:
+					var val uint32
+					pack.readUint32(&val)
+					value.value = float32(math.Float32frombits(val))
+				case MYSQL_TYPE_DOUBLE:
+					var val uint64
+					pack.readUint64(&val)
+					value.value = math.Float64frombits(val)
+				case MYSQL_TYPE_LONGLONG:
+					var val uint64
+					pack.readUint64(&val)
+					value.value = val
+				case MYSQL_TYPE_STRING, MYSQL_TYPE_VARCHAR:
+					var val string
+					if column.MaxLen > 255 {
+						val, _ = pack.readStringBySize(2)
+					} else {
+						val, _ = pack.readStringBySize(1)
+					}
+					value.value = string(val)
+				case MYSQL_TYPE_DECIMAL, MYSQL_TYPE_NEWDECIMAL:
+					value.value = pack.readNewDecimal(int(column.Precision), int(column.Decimals))
+				case MYSQL_TYPE_TINY_BLOB, MYSQL_TYPE_MEDIUM_BLOB, MYSQL_TYPE_BLOB, MYSQL_TYPE_LONG_BLOB:
+					value.value, _ = pack.readStringBySize(int(column.LenSize))
+				case MYSQL_TYPE_DATE:
+					value.value = pack.readDate()
+				case MYSQL_TYPE_DATETIME:
+					value.value = pack.readDateTime()
+				case MYSQL_TYPE_TIMESTAMP:
+					value.value = pack.readTimestamp()
+				case MYSQL_TYPE_TIME:
+					value.value = pack.readTime()
+				case MYSQL_TYPE_YEAR:
+					b, _ := pack.ReadByte()
+					value.value = 1900 + uint32(b)
+
+					// for new date format
+				case MYSQL_TYPE_DATETIME2:
+					value.value = pack.readDateTime2(column.Fsp)
+				case MYSQL_TYPE_ENUM, MYSQL_TYPE_SET, MYSQL_TYPE_GEOMETRY, MYSQL_TYPE_BIT:
+					value.value, _ = pack.readStringLength()
+				}
+			}
+			row = append(row, value)
+
+		}
+
+		if switcher {
+			event.values = append(event.values, row)
+		} else {
+			event.newValues = append(event.newValues, row)
+		}
+
+		if isUpdateEvent {
+			switcher = !switcher
+		}
+
+		if pack.Len() == 0 {
+			break
+		}
+	}
 }
 
 func (event *rowsEvent) GetSchema() string {
