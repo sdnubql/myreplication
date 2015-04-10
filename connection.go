@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"net"
+	"runtime/debug"
 	"strconv"
 )
 
@@ -104,11 +105,13 @@ func (c *Connection) init(username, password string) (err error) {
 }
 
 func (c *Connection) Close() {
+	println("Closed!")
+	debug.PrintStack()
 	if c.conn != nil {
-		c.Close()
+		c.conn.Close()
 	}
 
-	c = nil
+	c.conn = nil
 }
 
 func (c *Connection) GetMasterStatus() (pos uint32, filename string, err error) {

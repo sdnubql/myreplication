@@ -5,7 +5,7 @@ Pure Go Implementation of MySQL replication protocol. This allow you to receive 
 ## Installation
 
 ```bash
-go get github.com/2tvenom/myreplication
+go get github.com/wangjild/myreplication
 ```
 
 ## Test

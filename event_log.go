@@ -1,5 +1,7 @@
 package myreplication
 
+import ()
+
 type (
 	EventLog struct {
 		mysqlConnection               *Connection
@@ -13,8 +15,6 @@ type (
 		tableMap                      map[uint64]*Table
 		lastTableMapEvent             *TableMapEvent
 		additionalLength              int
-		eventChan                     chan interface{}
-		stop                          bool
 	}
 
 	eventLogHeader struct {
@@ -345,9 +345,7 @@ func (eh *eventLogHeader) readHead(pack *pack) {
 func newEventLog(mysqlConnection *Connection, additionalLength int) *EventLog {
 	return &EventLog{
 		mysqlConnection:  mysqlConnection,
-		eventChan:        make(chan interface{}),
 		additionalLength: additionalLength,
-		stop:             false,
 	}
 }
 
@@ -359,24 +357,13 @@ func (ev *EventLog) GetLastLogFileName() string {
 	return string(ev.lastRotateFileName)
 }
 
-func (ev *EventLog) GetEventChan() <-chan interface{} {
-	return ev.eventChan
-}
+func (ev *EventLog) GetEvent() (interface{}, error) {
 
-func (ev *EventLog) Stoped() bool {
-	return ev.stop
-}
-
-func (ev *EventLog) Stop() {
-	ev.stop = true
-}
-
-func (ev *EventLog) Start() error {
-	for !ev.Stoped() {
+	for {
 		event, err := ev.readEvent()
 
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		switch e := event.(type) {
@@ -398,21 +385,21 @@ func (ev *EventLog) Start() error {
 		case *logRotateEvent:
 			ev.lastRotateFileName = e.binlogFileName
 		case *QueryEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *XidEvent:
 			continue
 		case *IntVarEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *BeginLoadQueryEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *AppendBlockEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *ExecuteLoadQueryEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *UserVarEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *RandEvent:
-			ev.eventChan <- e
+			return e, nil
 		case *TableMapEvent:
 			ev.lastTableMapEvent = e
 		case *rowsEvent:
@@ -422,19 +409,19 @@ func (ev *EventLog) Start() error {
 			case _DELETE_ROWS_EVENTv1:
 				fallthrough
 			case _DELETE_ROWS_EVENTv2:
-				ev.eventChan <- &DeleteEvent{e}
+				return &DeleteEvent{e}, nil
 			case _UPDATE_ROWS_EVENTv0:
 				fallthrough
 			case _UPDATE_ROWS_EVENTv1:
 				fallthrough
 			case _UPDATE_ROWS_EVENTv2:
-				ev.eventChan <- &UpdateEvent{e}
+				return &UpdateEvent{e}, nil
 			case _WRITE_ROWS_EVENTv0:
 				fallthrough
 			case _WRITE_ROWS_EVENTv1:
 				fallthrough
 			case _WRITE_ROWS_EVENTv2:
-				ev.eventChan <- &WriteEvent{e}
+				return &WriteEvent{e}, nil
 			}
 
 			////////// trash events
@@ -455,13 +442,10 @@ func (ev *EventLog) Start() error {
 		}
 	}
 
-	ev.close()
-	return nil
 }
 
-func (ev *EventLog) close() {
+func (ev *EventLog) Close() {
 	ev.mysqlConnection.Close()
-	close(ev.eventChan)
 }
 
 func (ev *EventLog) readEvent() (interface{}, error) {
