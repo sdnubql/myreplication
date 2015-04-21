@@ -3,6 +3,7 @@ package myreplication
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math/big"
 	"strconv"
@@ -65,14 +66,15 @@ func (r *packReader) readNextPack() (*pack, error) {
 
 func (r *packReader) readNextPackWithAdditionalLength(addLength int) (*pack, error) {
 	buff := make([]byte, 4)
-	_, err := r.conn.Read(buff)
-	if err != nil {
+
+	if _, err := io.ReadFull(r.conn, buff); err != nil {
+		println("got err")
 		return nil, err
 	}
-	var length uint32
 
-	err = readThreeBytesUint32(buff[0:3], &length)
-	if err != nil {
+	var length uint32
+	if err := readThreeBytesUint32(buff[0:3], &length); err != nil {
+		println("got err in three bytes")
 		return nil, err
 	}
 
@@ -82,15 +84,17 @@ func (r *packReader) readNextPackWithAdditionalLength(addLength int) (*pack, err
 		buff:     make([]byte, length),
 	}
 
-	_, err = r.conn.Read(pack.buff)
-	if addLength > 0 {
-		pack.buff = pack.buff[0 : len(pack.buff)-addLength]
-	}
-	pack.Buffer = bytes.NewBuffer(pack.buff)
-	if err != nil {
+	if n, err := io.ReadFull(r.conn, pack.buff); err != nil {
+		fmt.Println("expect: ", length, "got", n)
+		println("read not full")
 		return nil, err
 	}
 
+	if addLength > 0 {
+		pack.buff = pack.buff[0 : len(pack.buff)-addLength]
+	}
+
+	pack.Buffer = bytes.NewBuffer(pack.buff)
 	return pack, nil
 }
 

@@ -2,6 +2,7 @@ package myreplication
 
 import (
 	"bytes"
+	"io"
 	"reflect"
 	"testing"
 )
@@ -9,7 +10,7 @@ import (
 func TestHandshakeRead(t *testing.T) {
 	mockHandshake := []byte{
 		//length
-		0xF5, 0x00, 0x00,
+		0x5f, 0x00, 0x00,
 		//sequence id
 		0x00,
 		//handshake version 10
@@ -46,9 +47,7 @@ func TestHandshakeRead(t *testing.T) {
 	pack, _ := packReader.readNextPack()
 
 	handshake := &pkgHandshake{}
-	err := handshake.readServer(pack)
-
-	if err != nil {
+	if err = handshake.readServer(pack); err != nil {
 		t.Fatal("Handshake read fail", err)
 	}
 
