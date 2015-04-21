@@ -2,7 +2,6 @@ package myreplication
 
 import (
 	"bytes"
-	"io"
 	"reflect"
 	"testing"
 )
@@ -47,12 +46,12 @@ func TestHandshakeRead(t *testing.T) {
 	pack, _ := packReader.readNextPack()
 
 	handshake := &pkgHandshake{}
-	if err = handshake.readServer(pack); err != nil {
+	if err := handshake.readServer(pack); err != nil {
 		t.Fatal("Handshake read fail", err)
 	}
 
 	if handshake.protocol_version != 10 {
-		t.Fatal("Mysql protocol is not 10", err)
+		t.Fatal("Mysql protocol is not 10")
 	}
 
 	serverVersion := []byte("5.5.38-0ubuntu0.14.04.1-log") //27 length
