@@ -298,13 +298,13 @@ func (c *Connection) getSchemaColumns(schema string, table string) ([]*SchemaCol
 	var rows *sql.Rows
 	var err error
 	if rows, err = c.ctrDB.Query(`
-		SELECT 
-			COLUMN_NAME, COLLATION_NAME, CHARACTER_SET_NAME, 
-			COLUMN_COMMENT, COLUMN_TYPE, COLUMN_KEY 
-		FROM 
-			columns 
-		WHERE 
-			table_schema = ? AND table_name = ?`, schema, table); err != nil {
+		SELECT
+			COLUMN_NAME, COLLATION_NAME, CHARACTER_SET_NAME,
+			COLUMN_COMMENT, COLUMN_TYPE, COLUMN_KEY
+		FROM
+			COLUMNS
+		WHERE
+			TABLE_SCHEMA = ? AND TABLE_NAME = ?`, schema, table); err != nil {
 		return nil, err
 	}
 

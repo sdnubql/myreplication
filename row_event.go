@@ -108,7 +108,7 @@ func (event *rowsEvent) read(pack *pack) {
 					var val uint64
 					pack.readUint64(&val)
 					value.value = val
-				case MYSQL_TYPE_STRING, MYSQL_TYPE_VARCHAR:
+				case MYSQL_TYPE_STRING,MYSQL_TYPE_VARCHAR:
 					var val string
 					if column.MaxLen > 255 {
 						val, _ = pack.readStringBySize(2)
@@ -136,11 +136,16 @@ func (event *rowsEvent) read(pack *pack) {
 				case MYSQL_TYPE_DATETIME2:
 					value.value = pack.readDateTime2(column.Fsp)
 				case MYSQL_TYPE_ENUM, MYSQL_TYPE_SET, MYSQL_TYPE_GEOMETRY, MYSQL_TYPE_BIT:
-					value.value, _ = pack.readStringLength()
+					enumValue := column.EnumValues
+					var arr []string
+					for _,s := range enumValue {
+						arr = append(arr, s)
+					}
+					columnId := value.GetColumnId()
+					value.value = arr[columnId-1]
 				}
 			}
 			row = append(row, value)
-
 		}
 
 		if switcher {
@@ -254,15 +259,15 @@ type (
 
 	SchemaColumn struct {
 		COLUMN_NAME        string
-		COLLATION_NAME     string
-		CHARACTER_SET_NAME string
+		COLLATION_NAME     interface{}
+		CHARACTER_SET_NAME interface{}
 		COLUMN_COMMENT     string
 		COLUMN_TYPE        string
 		COLUMN_KEY         string
 	}
 )
 
-func newColumn(pack *pack, colType byte /*, column *SchemaColumn*/) (*Column, error) {
+func newColumn(pack *pack, colType byte , column *SchemaColumn) (*Column, error) {
 	this := &Column{}
 
 	this.Type = colType
@@ -282,7 +287,7 @@ func newColumn(pack *pack, colType byte /*, column *SchemaColumn*/) (*Column, er
 	var err error
 	switch this.Type {
 	case MYSQL_TYPE_VAR_STRING, MYSQL_TYPE_STRING:
-		this.readStringMetaData(pack /*, column*/)
+		this.readStringMetaData(pack , column)
 	case MYSQL_TYPE_VARCHAR:
 		if err = pack.readUint16(&this.MaxLen); err != nil {
 			return nil, err
@@ -325,7 +330,7 @@ func newColumn(pack *pack, colType byte /*, column *SchemaColumn*/) (*Column, er
 	return this, nil
 }
 
-func (c *Column) readStringMetaData(pack *pack /*, column *SchemaColumn*/) error {
+func (c *Column) readStringMetaData(pack *pack , column *SchemaColumn) error {
 	var b1, b2 uint8
 	var err error
 	if err = pack.readUint8(&b1); err != nil {
@@ -338,11 +343,15 @@ func (c *Column) readStringMetaData(pack *pack /*, column *SchemaColumn*/) error
 
 	meta := uint16(b1<<8) + uint16(b2)
 	real_type := byte(meta >> 8)
+	if(strings.Contains(column.COLUMN_TYPE, "enum")) {
+		real_type = 0xf7;
+	}
+
 	switch real_type {
 	case MYSQL_TYPE_ENUM, MYSQL_TYPE_SET:
 		c.Type = real_type
 		c.Size = uint8(meta & 0x00ff)
-		// c.readEnumData(column)
+		c.readEnumData(column)
 	default:
 		c.MaxLen = (((meta >> 4) & 0x300) ^ 0x300) + (meta & 0x00ff)
 	}
@@ -386,14 +395,13 @@ func (event *TableMapEvent) read(pack *pack) {
 	}
 
 	// get schema info
-	/*
-		var err error
-			if _, ok := event.tableMap[event.TableId]; ok {
-				event.schemaColumns = event.tableMap[event.TableId].SchemaColumns
-			} else if event.schemaColumns, err = event.ctrConn.getSchemaColumns(event.SchemaName, event.TableName); err != nil {
-				panic("get schema info err:" + err.Error())
-			}
-	*/
+
+	var err error
+	if _, ok := event.tableMap[event.TableId]; ok {
+		event.schemaColumns = event.tableMap[event.TableId].SchemaColumns
+	} else if event.schemaColumns, err = event.ctrConn.getSchemaColumns(event.SchemaName, event.TableName); err != nil {
+		panic("get schema info err:" + err.Error())
+	}
 
 	var columnCount, metaLen uint64
 	var isNull bool
@@ -411,7 +419,7 @@ func (event *TableMapEvent) read(pack *pack) {
 	event.Columns = make([]*Column, columnCount)
 
 	for i := 0; i < len(columnTypeDef); i++ {
-		if column, err := newColumn(pack, columnTypeDef[i] /*, event.schemaColumns[i]*/); err != nil {
+		if column, err := newColumn(pack, columnTypeDef[i] , event.schemaColumns[i]); err != nil {
 			panic(err)
 		} else {
 			event.Columns[i] = column

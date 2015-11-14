@@ -550,6 +550,7 @@ func (ev *EventLog) readEvent() (interface{}, error) {
 		event = &TableMapEvent{
 			eventLogHeader: header,
 			tableMap:       ev.tableMap,
+			ctrConn:        ev.mysqlConnection,
 		}
 	case _DELETE_ROWS_EVENTv0:
 		fallthrough
